@@ -56,6 +56,9 @@ module Node=
     let id (node:Node)=
         node.data.id
 
+    let graph (node:Node)=
+        node.graph
+
 module Edge=
     let with_attribute key value (edge:Edge) =
         edge.impl.SetCustomAttribute(key,value)|>ignore
@@ -158,7 +161,7 @@ module Graph=
             node_impl.SetCustomAttribute(pair.Key, pair.Value)|>ignore
         )
 
-    let provide_html_vertex
+    let create_html_vertex
         (label:Node_id)
         (owner:Node)
         =
@@ -184,10 +187,15 @@ module Graph=
             child_node_attr = owner.data.child_node_attr
         }
         owner.data.children <- owner.data.children|>Seq.append [new_vertex]
-        {owner with data=new_vertex}
+        {
+            Node.graph = owner.graph
+            data = new_vertex
+        }
 
-    let provide_vertex
+    
+    let provide_labeled_vertex
         (id:Node_id)
+        (label:string)
         (owner:Node)
         =
         let owner_cluster = 
@@ -199,7 +207,7 @@ module Graph=
         let vertex_impl = DotNode(owner.data.id_impl+id);
         owner_cluster.Elements.Add(vertex_impl);
             
-        vertex_impl.SetCustomAttribute("label",id)|>ignore
+        vertex_impl.SetCustomAttribute("label",label)|>ignore
         vertex_impl|>write_attributes_to_node owner.data.child_node_attr
 
         
@@ -212,9 +220,18 @@ module Graph=
             child_node_attr = owner.data.child_node_attr
         }
         owner.data.children <- owner.data.children|>Seq.append [new_vertex]
-        {owner with data=new_vertex}
+        {
+            Node.graph = owner.graph
+            data = new_vertex
+        }
 
-
+    let provide_vertex
+        (id:Node_id)
+        (owner:Node)
+        =
+        provide_labeled_vertex
+            id id owner
+    
     let with_vertex 
         id
         target
@@ -269,11 +286,11 @@ module Graph=
         let tail_impl = 
             match tail.data.impl with
             |Vertex v -> v
-            |Cluster _ -> raise (ArgumentException("ports can't be in clusters, but in leaf vertices"))
+            |Cluster _ -> raise (ArgumentException("the tail is a cluster, and ports can't be in clusters, but in leaf vertices"))
         let head_impl = 
             match head.data.impl with
             |Vertex v -> v
-            |Cluster _ -> raise (ArgumentException("ports can't be in clusters, but in leaf vertices"))
+            |Cluster _ -> raise (ArgumentException("the head is a cluster, and ports can't be in clusters, but in leaf vertices"))
              
         let edge_impl = DotNetGraph.Edge.DotEdge(tail_impl, tail_port, head_impl, head_port)
         edge_impl.SetCustomAttribute("id",$"\"{tail.data.id_impl}->{head.data.id_impl}\"")|>ignore
